@@ -188,8 +188,8 @@ def do_fork():
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
-        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
+    except OSError, err:
+        print("fork failed: {0} ({1})".format(err.errno, err.strerror))
         sys.exit(1)
 
     # daemonize this child process
