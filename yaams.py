@@ -196,6 +196,10 @@ def do_fork():
     os.chdir("/")
     os.setsid()
     os.umask(0)
+    null = os.open('/dev/null', os.O_RDWR)
+    for fd in range(3):
+        os.close(fd)
+        os.dup2(null, fd)
 
 def loop():
     bus = dbus.SystemBus(mainloop=DBusGMainLoop())
