@@ -130,7 +130,10 @@ def mount_device(bus, udi):
         os.chown(dev['mountpoint'], dev['uid'], dev['gid'])
         
         cmd = 'mount -t {0} -o {1} {2} {3}'
-        cmd = cmd.format(dev['fstype'], dev['options'], dev['block'], dev['mountpoint'])
+        cmd = cmd.format(dev['fstype'], \
+                         dev['options'], \
+                         dev['block'], \
+                         dev['mountpoint'])
         runcmd(cmd)
 
         # store it for later unmounting
@@ -170,13 +173,12 @@ def do_fork():
     os.setsid()
     os.umask(0)
 
-def start_loop():
-    dbus_loop = DBusGMainLoop()
-
-    bus = dbus.SystemBus(mainloop=dbus_loop)
+def loop():
+    bus = dbus.SystemBus(mainloop=DBusGMainLoop())
 
     # get a HAL object and an interface to HAL to make function calls
-    hal_obj = bus.get_object ('org.freedesktop.Hal', '/org/freedesktop/Hal/Manager')
+    hal_obj = bus.get_object ('org.freedesktop.Hal', \
+                              '/org/freedesktop/Hal/Manager')
     hal_manager = dbus.Interface (hal_obj, 'org.freedesktop.Hal.Manager')
 
     # get all the devices that are volumes and premount them
@@ -189,14 +191,17 @@ def start_loop():
         dev_int = dbus.Interface (dev_obj, 'org.freedesktop.Hal.Device')
         if dev_int.GetProperty("storage.drive_type") == 'cdrom':
             block_dev = dev_int.GetProperty("block.device")
-            dev_int.connect_to_signal("Condition", partial(eject_device, bus, block_dev))
+            dev_int.connect_to_signal("Condition", \
+                                      partial(eject_device, bus, block_dev))
 
 
     # add the callbacks
-    hal_manager.connect_to_signal("DeviceAdded",   partial(mount_device,   bus))
-    hal_manager.connect_to_signal("DeviceRemoved", partial(unmount_device, bus))
+    hal_manager.connect_to_signal("DeviceAdded",   \
+                                  partial(mount_device,   bus))
+    hal_manager.connect_to_signal("DeviceRemoved", \
+                                  partial(unmount_device, bus))
 
-    # start the main loop
+    # start the main loop, sadly still with gobject
     gloop = gobject.MainLoop()
     gloop.run()
 
@@ -212,4 +217,4 @@ if __name__ == '__main__':
         open(PIDPATH, 'w').write(os.getpid())
         logout = logerr = open('LOGFILE', 'a')
     
-    start_loop()
+    loop()
