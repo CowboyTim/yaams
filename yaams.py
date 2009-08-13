@@ -23,7 +23,33 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 #
-# Tim Aerts aardbeiplantje@gmail.com
+# Tim Aerts <aardbeiplantje@gmail.com>
+
+# PLEDGE:
+#
+# Yet Another Auto Mounter System (YAAMS) is an automounter, written in python.
+# It is loosly based on the pymount.py script from Mashi. The original script
+# can only mount devices/volumes/storage devices when they are in /etc/fstab.
+# The original script also doesn't support cdroms being ejected. This script
+# uses the label, and if not found, the UUID to me mounted under /media. Maybe
+# in the future, both can be merged if needed. It is not my intention to manage
+# yet another auto mounter just for fun. I also like the idea of it being
+# written in a higher level VM language, especially for things like this.
+#
+#  Tim - 2009/08/13
+
+# TODO:
+#
+#   * still look at writing udev rules: no need for HAL/DBus then ;-)
+#   * write decent docs
+#   * write usage/cmdline option parsing
+#   * configurable mount options, not via fstab
+#   * implement locking with a PID file
+#   * implement /etc/init.d/yaams {start|stop|reload} behavior
+#   * implement better logging (perhaps with a debugging possibility)
+#   * make sure this thing gets out of hand bulky ;-)
+#   * implement signal behavior: INT|TERM clean exit, instead of err raise
+#   * more strict error/exception behavior
 
 import sys
 import os
@@ -34,7 +60,6 @@ from subprocess import call
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 
-PIDPATH   = '/var/run/yaams.pid'
 LOGFILE   = '/var/log/yaams.log'
 MOUNTBASE = '/media'
 
@@ -211,7 +236,6 @@ if __name__ == '__main__':
 
     if daemon:
         do_fork()
-        open(PIDPATH, 'w').write(os.getpid())
         logout = logerr = open('LOGFILE', 'a')
     
     loop()
