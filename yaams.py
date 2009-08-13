@@ -25,15 +25,14 @@
 #
 # Tim Aerts aardbeiplantje@gmail.com
 
-
-
-import dbus
-from dbus.mainloop.glib import DBusGMainLoop
 import sys
 import os
-import gobject
-from functools import partial
+
+from gobject    import MainLoop
+from functools  import partial
 from subprocess import call
+import dbus
+from dbus.mainloop.glib import DBusGMainLoop
 
 PIDPATH   = '/var/run/yaams.pid'
 LOGFILE   = '/var/log/yaams.log'
@@ -202,9 +201,7 @@ def loop():
                                   partial(unmount_device, bus))
 
     # start the main loop, sadly still with gobject
-    gloop = gobject.MainLoop()
-    gloop.run()
-
+    MainLoop().run()
 
 if __name__ == '__main__':
     try:
