@@ -67,7 +67,10 @@ logout = sys.stdout
 logerr = sys.stderr
 
 udi_to_dev_map = {}
-dev_to_udi_map = {}
+blk_to_dev_map = {}
+mnt_to_dev_map = {}
+
+i = 0
     
 def get_fstab_dev(dev_udi):
     uuid = dev_udi[dev_udi.rfind('volume_uuid_')+12:].replace('_','-')
@@ -123,14 +126,20 @@ def get_mntpoint(bus, udi):
         if is_mounted:
             print("is mounted:"+dev['block'])
             dev['mountpoint'] = dev_int.GetProperty('volume.mount_point')
-            udi_to_dev_map[udi] = dev
-            dev_to_udi_map[dev['block']] = dev
+            udi_to_dev_map[udi]               = dev
+            blk_to_dev_map[dev['block']]      = dev
+            mnt_to_dev_map[dev['mountpoint']] = dev
             return
         if fsusage == 'filesystem':
             dev['mountpoint'] = dev_int.GetProperty("volume.label")
             if not dev['mountpoint']:
                 dev['mountpoint'] = dev['uuid']
             dev['mountpoint'] = MOUNTBASE + '/' + dev['mountpoint']
+    
+            if dev['mountpoint'] in mnt_to_dev_map:
+                global i
+                i += 1
+                dev['mountpoint'] = dev['mountpoint']+'_'+str(i)
             
             return dev
 
@@ -140,7 +149,7 @@ def eject_device(bus, block_dev, what, nop):
     print("eject:"+what+",block_dev:"+block_dev)
     if what != 'EjectPressed':
         return
-    unmount_device(bus, dev_to_udi_map[block_dev]['udi'])
+    unmount_device(bus, blk_to_dev_map[block_dev]['udi'])
     runcmd('eject {0}'.format(block_dev))
 
 def mount_device(bus, udi):
@@ -161,8 +170,9 @@ def mount_device(bus, udi):
         runcmd(cmd)
 
         # store it for later unmounting
-        udi_to_dev_map[udi] = dev
-        dev_to_udi_map[dev['block']] = dev
+        udi_to_dev_map[udi]               = dev
+        blk_to_dev_map[dev['block']]      = dev
+        mnt_to_dev_map[dev['mountpoint']] = dev
     except Exception, e:
         print(e)
         
@@ -175,7 +185,8 @@ def unmount_device(bus, udi):
     print(dev)
     print("unmount:"+dev['block'])
     del udi_to_dev_map[udi]
-    del dev_to_udi_map[dev['block']]
+    del blk_to_dev_map[dev['block']]
+    del mnt_to_dev_map[dev['mountpoint']]
     try:
         retcode = runcmd('umount {0}'.format(dev['mountpoint']))
         if retcode == 0:
