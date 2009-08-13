@@ -96,10 +96,11 @@ def get_fstab_dev(dev_udi):
             dev['uid'] = int(o[4:])
     return dev
 
-def runcmd(cmd):
+def runcmd(cmd_args):
+    cmd = ''.join(cmd_args)
     logout.write("command:{0}\n".format(cmd))
     logout.flush()
-    retcode = call(cmd.split(), stdout=logout, stderr=logerr)
+    retcode = call(cmd_args, stdout=logout, stderr=logerr)
     if retcode != 0:
         logout.write("return code:{0}\n".format(retcode))
     return retcode
@@ -135,6 +136,10 @@ def get_mntpoint(bus, udi):
             if not dev['mountpoint']:
                 dev['mountpoint'] = dev['uuid']
             dev['mountpoint'] = MOUNTBASE + '/' + dev['mountpoint']
+
+            vendor = find_vendor(bus, udi)
+            dev['mountpoint'] = dev['mountpoint'] + ' (' + vendor + ')'
+            print(vendor)
     
             if dev['mountpoint'] in mnt_to_dev_map:
                 global i
@@ -145,12 +150,29 @@ def get_mntpoint(bus, udi):
 
     return None
 
+def find_vendor(bus, udi):
+    print("find_vendor:"+udi)
+    dev_obj = bus.get_object('org.freedesktop.Hal', udi)
+    dev_int = dbus.Interface (dev_obj, 'org.freedesktop.Hal.Device')
+    vendor = None
+    if dev_int.PropertyExists('info.subsystem'):
+        subsystem = dev_int.GetProperty('info.subsystem') + '.vendor'
+        if dev_int.PropertyExists(subsystem):
+            vendor = dev_int.GetProperty(subsystem)
+    while not vendor:
+        new_udi = dev_int.GetProperty('info.parent')
+        if new_udi == udi:
+            return None
+        return find_vendor(bus, new_udi)
+    return vendor
+    
+
 def eject_device(bus, block_dev, what, nop):
     print("eject:"+what+",block_dev:"+block_dev)
     if what != 'EjectPressed':
         return
     unmount_device(bus, blk_to_dev_map[block_dev]['udi'])
-    runcmd('eject {0}'.format(block_dev))
+    runcmd(['eject', block_dev])
 
 def mount_device(bus, udi):
     print("mount "+udi)
@@ -162,12 +184,10 @@ def mount_device(bus, udi):
             os.mkdir(dev['mountpoint'], 0755)
         os.chown(dev['mountpoint'], dev['uid'], dev['gid'])
         
-        cmd = 'mount -t {0} -o {1} {2} {3}'
-        cmd = cmd.format(dev['fstype'], \
-                         dev['options'], \
+        runcmd(['mount', '-t', dev['fstype'], \
+                        '-o', dev['options'], \
                          dev['block'], \
-                         dev['mountpoint'])
-        runcmd(cmd)
+                         dev['mountpoint']])
 
         # store it for later unmounting
         udi_to_dev_map[udi]               = dev
@@ -188,7 +208,7 @@ def unmount_device(bus, udi):
     del blk_to_dev_map[dev['block']]
     del mnt_to_dev_map[dev['mountpoint']]
     try:
-        retcode = runcmd('umount {0}'.format(dev['mountpoint']))
+        retcode = runcmd(['umount', dev['mountpoint']])
         if retcode == 0:
             os.rmdir(dev['mountpoint'])
     except Exception, e:
