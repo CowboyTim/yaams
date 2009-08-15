@@ -50,6 +50,8 @@
 #   * make sure this thing gets out of hand bulky ;-)
 #   * implement signal behavior: INT|TERM clean exit, instead of err raise
 #   * more strict error/exception behavior
+#   * all mounts are mounted 'ro' : read-only. Better fix that someday for
+#     usefullness. (unless it has an fstab entry nvdr.)
 
 import sys
 import os
@@ -132,14 +134,26 @@ def get_mntpoint(bus, udi):
             mnt_to_dev_map[dev['mountpoint']] = dev
             return
         if fsusage == 'filesystem':
+            
+            # search for a vendor
+            vendor = find_vendor_and_product(bus, udi)
+            print(vendor)
+
+            size = None
+            if dev_int.PropertyExists('volume.size'):
+                size = dev_int.GetProperty('volume.size')
+                if size:
+                    vendor += ' (' + str(size/(1000*1000*1000)) + ' GB)'
+
+            # take the label as a valid mountpoint
             dev['mountpoint'] = dev_int.GetProperty("volume.label")
             if not dev['mountpoint']:
-                dev['mountpoint'] = dev['uuid']
+                dev['mountpoint'] = vendor
+            else:
+                dev['mountpoint'] = dev['mountpoint'] + ' (' + vendor + ')'
+                
+            # prefix
             dev['mountpoint'] = MOUNTBASE + '/' + dev['mountpoint']
-
-            vendor = find_vendor(bus, udi)
-            dev['mountpoint'] = dev['mountpoint'] + ' (' + vendor + ')'
-            print(vendor)
     
             if dev['mountpoint'] in mnt_to_dev_map:
                 global i
@@ -150,20 +164,31 @@ def get_mntpoint(bus, udi):
 
     return None
 
-def find_vendor(bus, udi):
-    print("find_vendor:"+udi)
+def find_vendor_and_product(bus, udi):
+    print("find_vendor_and_product:"+udi)
     dev_obj = bus.get_object('org.freedesktop.Hal', udi)
     dev_int = dbus.Interface (dev_obj, 'org.freedesktop.Hal.Device')
-    vendor = None
-    if dev_int.PropertyExists('info.subsystem'):
+
+    vendor    = None
+    subsystem = None
+    if dev_int.PropertyExists('info.category'):
+        subsystem = dev_int.GetProperty('info.category') + '.vendor'
+    elif dev_int.PropertyExists('info.subsystem'):
         subsystem = dev_int.GetProperty('info.subsystem') + '.vendor'
-        if dev_int.PropertyExists(subsystem):
-            vendor = dev_int.GetProperty(subsystem)
+        if subsystem == 'usb.vendor':
+            subsystem = None
+    if subsystem and dev_int.PropertyExists(subsystem):
+        vendor = dev_int.GetProperty(subsystem)
+        if vendor:
+            product = dev_int.GetProperty('info.product')
+            vendor  = product + ' - ' + vendor
     while not vendor:
+        # got find the parent
         new_udi = dev_int.GetProperty('info.parent')
         if new_udi == udi:
             return None
-        return find_vendor(bus, new_udi)
+        return find_vendor_and_product(bus, new_udi)
+
     return vendor
     
 
@@ -183,6 +208,16 @@ def mount_device(bus, udi):
         if not os.path.isdir(dev['mountpoint']):
             os.mkdir(dev['mountpoint'], 0755)
         os.chown(dev['mountpoint'], dev['uid'], dev['gid'])
+
+        # ntfs-3g specifics: users aren't allowed to read the files and
+        # directories with the default options. We change that here.  According
+        # to the doc, dmask/fmask is only for vfat. It is also not listed in
+        # the volume.mount.ntfs.valid_options from HAL. However, it seems to
+        # work.
+        if dev['fstype'] == 'ntfs-3g':
+            if dev['options']:
+                dev['options'] += ','
+            dev['options'] += 'dmask=0222,fmask=0333'
         
         runcmd(['mount', '-t', dev['fstype'], \
                         '-o', dev['options'], \
