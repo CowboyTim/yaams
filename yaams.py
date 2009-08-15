@@ -142,7 +142,7 @@ def get_mntpoint(bus, udi):
             size = None
             if dev_int.PropertyExists('volume.size'):
                 size = dev_int.GetProperty('volume.size')
-                if size:
+                if size and size > 0:
                     vendor += ' (' + str(size/(1000*1000*1000)) + ' GB)'
 
             # take the label as a valid mountpoint
@@ -169,17 +169,10 @@ def find_vendor_and_product(bus, udi):
     dev_obj = bus.get_object('org.freedesktop.Hal', udi)
     dev_int = dbus.Interface (dev_obj, 'org.freedesktop.Hal.Device')
 
-    vendor    = None
-    subsystem = None
-    if dev_int.PropertyExists('info.category'):
-        subsystem = dev_int.GetProperty('info.category') + '.vendor'
-    elif dev_int.PropertyExists('info.subsystem'):
-        subsystem = dev_int.GetProperty('info.subsystem') + '.vendor'
-        if subsystem == 'usb.vendor':
-            subsystem = None
-    if subsystem and dev_int.PropertyExists(subsystem):
-        vendor = dev_int.GetProperty(subsystem)
-        if vendor:
+    vendor  = None
+    if dev_int.PropertyExists('info.vendor'):
+        vendor = dev_int.GetProperty('info.vendor')
+        if vendor and dev_int.PropertyExists('info.product'):
             product = dev_int.GetProperty('info.product')
             vendor  = product + ' - ' + vendor
     while not vendor:
