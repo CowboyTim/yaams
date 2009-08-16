@@ -68,9 +68,10 @@ MOUNTBASE = '/media'
 logout = sys.stdout
 logerr = sys.stderr
 
-udi_to_dev_map = {}
-blk_to_dev_map = {}
-mnt_to_dev_map = {}
+udi_to_dev_map             = {}
+blk_to_dev_map             = {}
+mnt_to_dev_map             = {}
+storage_udi_to_volume_udis = {}
 
 i = 0
     
@@ -126,12 +127,18 @@ def get_mntpoint(bus, udi):
         dev['block']  = dev_int.GetProperty("block.device")
         dev['fstype'] = dev_int.GetProperty('volume.fstype')
         dev['uuid']   = dev_int.GetProperty('volume.uuid')
+        dev['storage_udi'] = find_storage_udi(bus, udi)
         if is_mounted:
             print("is mounted:"+dev['block'])
             dev['mountpoint'] = dev_int.GetProperty('volume.mount_point')
             udi_to_dev_map[udi]               = dev
             blk_to_dev_map[dev['block']]      = dev
             mnt_to_dev_map[dev['mountpoint']] = dev
+            if not dev['storage_udi'] in storage_udi_to_volume_udis:
+                storage_udi_to_volume_udis[dev['storage_udi']] = set([udi])
+            else:
+                storage_udi_to_volume_udis[dev['storage_udi']].add(udi)
+                
             return
         if fsusage == 'filesystem':
             
@@ -175,6 +182,11 @@ def find_vendor_and_product(bus, udi):
         if vendor and dev_int.PropertyExists('info.product'):
             product = dev_int.GetProperty('info.product')
             vendor  = product + ' - ' + vendor
+            if      dev_int.PropertyExists('storage.bus') \
+                and dev_int.GetProperty('storage.bus') == 'usb' \
+                and dev_int.PropertyExists('storage.removable') \
+                and dev_int.GetProperty('storage.removable') == False:
+                vendor = None
     while not vendor:
         # got find the parent
         new_udi = dev_int.GetProperty('info.parent')
@@ -183,14 +195,43 @@ def find_vendor_and_product(bus, udi):
         return find_vendor_and_product(bus, new_udi)
 
     return vendor
+
+def find_storage_udi(bus, udi):
+    print("find_storage_udi:"+udi)
+    dev_obj = bus.get_object('org.freedesktop.Hal', udi)
+    dev_int = dbus.Interface (dev_obj, 'org.freedesktop.Hal.Device')
+
+    category = None
+    if dev_int.PropertyExists('info.category'):
+        category = dev_int.GetProperty('info.category')
+    while category != 'storage':
+        # got find the parent
+        new_udi = dev_int.GetProperty('info.parent')
+        if new_udi == udi:
+            return None
+        return find_storage_udi(bus, new_udi)
+
+    return udi
     
 
-def eject_device(bus, block_dev, what, nop):
+def eject_device(bus, dev_int, what, nop):
+    block_dev = dev_int.GetProperty("block.device")
     print("eject:"+what+",block_dev:"+block_dev)
     if what != 'EjectPressed':
         return
     unmount_device(bus, blk_to_dev_map[block_dev]['udi'])
     runcmd(['eject', block_dev])
+
+def property_changed_handler(bus, dev_int, cnt, property_changes):
+    print("property_changed_handler:"+str(cnt))
+    for change in property_changes:
+        print(change)
+        if      change[0] == 'storage.removable.media_available' \
+            and change[1] == False:
+            print(storage_udi_to_volume_udis)
+            s_udi = dev_int.GetProperty('info.udi')
+            for volume_udi in storage_udi_to_volume_udis[s_udi]:
+                unmount_device(bus, volume_udi)
 
 def mount_device(bus, udi):
     print("mount "+udi)
@@ -221,6 +262,10 @@ def mount_device(bus, udi):
         udi_to_dev_map[udi]               = dev
         blk_to_dev_map[dev['block']]      = dev
         mnt_to_dev_map[dev['mountpoint']] = dev
+        if not dev['storage_udi'] in storage_udi_to_volume_udis:
+            storage_udi_to_volume_udis[dev['storage_udi']] = set([udi])
+        else:
+            storage_udi_to_volume_udis[dev['storage_udi']].add(udi)
     except Exception, e:
         print(e)
         
@@ -276,10 +321,12 @@ def loop():
     for udi in hal_manager.FindDeviceByCapability('storage'):
         dev_obj = bus.get_object('org.freedesktop.Hal', udi)
         dev_int = dbus.Interface (dev_obj, 'org.freedesktop.Hal.Device')
-        if dev_int.GetProperty("storage.drive_type") == 'cdrom':
-            block_dev = dev_int.GetProperty("block.device")
+        if dev_int.GetProperty("storage.requires_eject") == True:
             dev_int.connect_to_signal("Condition", \
-                                      partial(eject_device, bus, block_dev))
+                partial(eject_device, bus, dev_int))
+        elif dev_int.GetProperty("storage.removable") == True:
+            dev_int.connect_to_signal("PropertyModified", \
+                partial(property_changed_handler, bus, dev_int))
 
 
     # add the callbacks
