@@ -12,7 +12,7 @@
 	<style type="text/css">
 		body {
   		margin-top: 1.0em;
-  		background-color: #b7cb88;
+  		background-color: #ffffff;
 		  font-family: "Helvetica,Arial,FreeSans"; 
   		color: #000000;
     }
@@ -28,7 +28,6 @@
     a { color: #483477; }
     .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
     .download { float: right; }
-		pre { background: #000; color: #fff; padding: 15px;}
     hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
     .footer { text-align:center; padding-top:30px; font-style: italic; }
 	</style>
@@ -55,17 +54,19 @@
     </div>
 
     <p>Yet Another Auto Mounter System (YAAMS) is an automounter, written in python.  It is loosly based on the pymount.py script from Mashi. The original script can only mount devices/volumes/storage devices when they are in /etc/fstab. The original script also doesn't support cdroms being ejected. 
-
-This script uses the label, and if not found, the UUID to me mounted under /media. Maybe in the future, both can be merged if needed. It is not my intention to manage yet another auto mounter just for fun. I also like the idea of it being written in a higher level VM language, especially for things like this.
+<br>
+<br>
+This script uses the label, and if not found, the UUID to be mounted under /media. Maybe in the future, both can be merged if needed. It is not my intention to manage yet another auto mounter just for fun. I also like the idea of it being written in a higher level VM language, especially for things like this.
 </p><h2>Dependencies</h2>
 <p>python python-dbus python-gobject</p>
 <h2>Install</h2>
 <p>on ubuntu 9.04:
-
+<pre>
   $ sudo apt-get install python-dbus python-gobject
-  $ sudo python yaams.py -d</p>
+  $ sudo python yaams.py -d
+</pre></p>
 <h2>License</h2>
-<p>Yet Another Auto Mounter System (YAAMS) is distributed under the zlib/libpng
+<pre>Yet Another Auto Mounter System (YAAMS) is distributed under the zlib/libpng
 license, which is OSS (Open Source Software) compliant.
 
 Copyright (C) 2009 Tim Aerts
@@ -86,7 +87,7 @@ freely, subject to the following restrictions:
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 
-Tim Aerts <aardbeiplantje@gmail.com></p>
+Tim Aerts <aardbeiplantje@gmail.com></pre>
 <h2>Authors</h2>
 <p>Tim Aerts (aardbeiplantje@gmail.com)<br/><br/>      </p>
 <h2>Contact</h2>
