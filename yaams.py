@@ -248,7 +248,7 @@ def mount_device(bus, udi):
         # to the doc, dmask/fmask is only for vfat. It is also not listed in
         # the volume.mount.ntfs.valid_options from HAL. However, it seems to
         # work.
-        if dev['fstype'] == 'ntfs-3g':
+        if dev['fstype'] == 'ntfs-3g' or dev['fstype'] = 'ntfs':
             if dev['options']:
                 dev['options'] += ','
             dev['options'] += 'dmask=0222,fmask=0333'
