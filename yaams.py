@@ -251,7 +251,7 @@ def mount_device(bus, udi):
         if dev['fstype'] == 'ntfs-3g' or dev['fstype'] == 'ntfs':
             if dev['options']:
                 dev['options'] += ','
-            dev['options'] += 'dmask=0222,fmask=0333'
+            dev['options'] += 'dmask=0222,fmask=0333,nls=utf8'
         
         runcmd(['mount', '-t', dev['fstype'], \
                         '-o', dev['options'], \
